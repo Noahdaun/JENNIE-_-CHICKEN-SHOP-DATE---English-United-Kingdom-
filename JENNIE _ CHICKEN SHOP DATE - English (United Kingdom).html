@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Asian Food - 자막 플레이어</title>
+  <style>
+    body { margin:0; font-family:sans-serif; background:#f5f8fa; color:#232340; }
+    .container { max-width:440px; margin:0 auto; }
+    #player {
+      width:100%;
+      aspect-ratio:16/9;
+      border:none;
+      border-radius:18px;
+      margin-top:12px;
+      box-shadow:0 2px 10px #cdd4e7;
+      position: sticky; top: 0; z-index: 2;
+      background: #000;
+    }
+    #progress { margin:18px 18px 8px 18px; font-size:17px; font-weight:500; text-align:right; }
+    #controls { display:flex; gap:10px; margin:0 18px 14px 18px; }
+    #controls button { font-size:15px; padding:7px 14px; border-radius:10px; border:none; background:#dbeafe; color:#232340; cursor:pointer; }
+    #controls button.active { background:#232340; color:#fff; }
+    #subs { display:flex; flex-direction:column; gap:12px; padding:0 18px 24px 18px; }
+    .sub-row { display:flex; align-items:center; gap:10px; }
+    .sub-btn {
+      flex:1;
+      font-size:18px;
+      padding:16px;
+      border-radius:14px;
+      border:none;
+      background:#e0e7ff;
+      color:#232340;
+      text-align:left;
+      transition:.13s;
+      white-space:normal;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+    .sub-btn:active { background:#a5b4fc; }
+    .sub-btn.learned { background:#a7f3d0; color:#157348; text-decoration:line-through; }
+    .hide-btn { background:transparent; border:none; font-size:19px; cursor:pointer; color:#bbb; }
+    .hide-btn.active { color:#3b3b3b; }
+    .check-btn { background:transparent; border:none; font-size:20px; cursor:pointer; margin-left:3px; color:#b4e197;}
+    .check-btn.checked { color:#22c55e; }
+    @media (max-width: 520px) {
+      #player { border-radius:9px;}
+      .sub-btn { font-size:17px; padding:12px;}
+      #progress { font-size:16px;}
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <!-- 유튜브 영상만 이 줄을 아래처럼 변경 -->
+  <iframe id="player" src="https://www.youtube.com/embed/ECXAFUmdJkI?enablejsapi=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+  <div id="progress"></div>
+  <div id="controls">
+    <button id="show-all" class="active">전체 보기</button>
+    <button id="show-learned">외웠음 보기</button>
+  </div>
+  <div id="subs"></div>
+</div>
+<script>
+// 변환된 SUBS 배열 전체 (SRT 원본 기준)
+const SUBS = [
+  { text: "This is very intimate.", start: 0.24, end: 1.6 },
+  { text: "This is very intimate, yes.", start: 1.6, end: 3.04 },
+  { text: "Because it's a date.", start: 3.04, end: 4.12 },
+  { text: "I can feel it.", start: 4.12, end: 5.04 },
+  { text: "The tension.", start: 5.2, end: 5.72 },
+  { text: "Mm-hm.", start: 5.72, end: 6.24 },
+  { text: "The sexual chemistry.", start: 6.24, end: 7.24 },
+  { text: "It's there.", start: 7.24, end: 7.96 },
+  { text: "Or maybe it's just the smell of chicken that’s throwing you off.", start: 7.96, end: 10.26 },
+  { text: "Are you a romantic person?", start: 18.96, end: 20.28 },
+  { text: "I consider myself to be very romantic.", start: 20.28, end: 22.9 },
+  { text: "In what way?", start: 22.92, end: 24.08 },
+  { text: "I like to surprise my date.", start: 24.32, end: 28.66 },
+  { text: "Mm.", start: 28.64, end: 29.6 },
+  { text: "And...", start: 29.88, end: 30.72 },
+  { text: "Sorry, this gets me everytime.", start: 31.68, end: 33.08 },
+  { text: "I just think it's so unnecessary that there's three nozzles.", start: 33.08, end: 36.32 },
+  { text: "It's creepy, isn't it.", start: 37.08, end: 38.16 },
+  { text: "It really is.", start: 38.16, end: 39.49 },
+  { text: "It's creepy.", start: 38.68, end: 39.4 },
+  { text: "What do you think is the best compliment that you can give someone?", start: 44.56, end: 47.4 },
+  { text: "That I like them.", start: 47.76, end: 48.84 },
+  { text: "That's pretty good.", start: 48.84, end: 49.84 },
+  { text: "I don't like anyone. So... I like you.", start: 49.84, end: 53.0 },
+  { text: "Oh, thanks. Wow.", start: 53.0, end: 54.2 },
+  { text: "I like you so much, that I flew into London to see you.", start: 54.2, end: 58.76 },
+  { text: "I think you're becoming obsessed with me.", start: 58.76, end: 60.8 },
+  { text: "I am a little bit.", start: 60.8, end: 61.92 },
+  { text: "And I think you need to relax.", start: 61.92, end: 64.12 },
+  { text: "But this is my only chance.", start: 64.32, end: 65.55 },
+  { text: "So...", start: 65.4, end: 65.88 },
+  { text: "You’re never going to see me ever again!", start: 66.08, end: 67.4 },
+  { text: "I'm like, gone with the wind.", start: 67.2, end: 68.44 },
+  { text: "It'll be hard to catch you next time.", start: 69.01, end: 70.76 },
+  { text: "No, I appreciate that.", start: 70.76, end: 71.66 },
+  { text: "Thank you for flying in to see me.", start: 71.56, end: 73.2 },
+  { text: "Most people do.", start: 74.36, end: 75.36 },
+  { text: "So how often are you getting a  love hangover?", start: 80.84, end: 83.50 },
+  { text: "Every weekend?", start: 84.6, end: 85.90 },
+  { text: "Or is it...?", start: 86.28, end: 86.70 },
+  { text: "Every other weekend?!", start: 86.70, end: 87.89 },
+  { text: "Every other weekend. Okay, cool!", start: 87.64, end: 89.96 },
+  { text: "Hangovers are the worst.", start: 89.74, end: 90.86 },
+  { text: "I don't enjoy hangovers.", start: 90.86, end: 92.42 },
+  { text: "No.", start: 92.42, end: 93.02 },
+  { text: "But you still do it again.", start: 93.02, end: 95.48 },
+  { text: "Yeah.", start: 95.68, end: 96.56 },
+  { text: "Knowing that the hangover is going to be there.", start: 96.56, end: 98.99 },
+  { text: "It's kind of like,  the high is worth the low.", start: 98.72, end: 101.99 },
+  { text: "But then I think it gets to a point", start: 101.96, end: 104.16 },
+  { text: "where you decide that you're going to be sober.", start: 103.86, end: 106.82 },
+  { text: "Do you believe in fate.", start: 111.08, end: 113.12 },
+  { text: "I do.", start: 112.72, end: 113.52 },
+  { text: "It's less now", start: 114.2, end: 116.0 },
+  { text: "but I used to be a fate person.", start: 116.2, end: 119.60 },
+  { text: "But fate has disappointed me and...", start: 119.52, end: 122.90 },
+  { text: "I’m sorry to hear that.", start: 122.52, end: 123.40 },
+  { text: "But now I'm back to; I can decide my own fate.", start: 123.38, end: 127.90 },
+  { text: "So let me... let me  be friends with fate again.", start: 127.7, end: 131.58 },
+  { text: "Also, maybe it's like,", start: 131.38, end: 134.00 },
+  { text: "If whatever you wanted for yourself didn't happen for you.", start: 133.52, end: 136.80 },
+  { text: "Maybe that was... It wasn't meant for you.", start: 136.54, end: 138.65 },
+  { text: "I've learned it over... Lessons.", start: 138.6, end: 141.54 },
+  { text: "God, we’re getting very philosophical.", start: 141.34, end: 142.92 },
+  { text: "I like someone where you can,", start: 143.5, end: 145.06 },
+  { text: "you can just talk about anything really.", start: 144.56, end: 146.06 },
+  { text: "Do you believe in love at first sight?", start: 313.44, end: 314.98 },
+  { text: "That's been my life.", start: 314.98, end: 316.22 },
+  { text: "You've actually fallen in love at first sight?", start: 316.32, end: 318.32 },
+  { text: "Mm-hm.", start: 318.22, end: 318.56 },
+  { text: "God!", start: 318.56, end: 319.64 },
+  { text: "I know instantly  whether it's going to work or not.", start: 319.74, end: 323.5 },
+  { text: "When you know, you know.", start: 323.74, end: 324.58 },
+  { text: "Sunglasses inside. Yes or no?", start: 327.5, end: 330.62 },
+  { text: "I can't say no", start: 330.32, end: 331.42 },
+  { text: "because I do it sometimes,", start: 331.42, end: 333.34 },
+  { text: "but I don't like to see  other people with it.", start: 333.76, end: 336.55 },
+  { text: "So...", start: 336.44, end: 337.16 },
+  { text: "Okay, right.", start: 337.36, end: 338.36 },
+  { text: "It’s okay if it’s you!", start: 338.46, end: 339.82 },
+  { text: "I don't know how to flirt.", start: 345.04, end: 346.92 },
+  { text: "I feel like you're very, you've got a very great energy.", start: 347.12, end: 349.4 },
+  { text: "I feel like lots of people  would come over to you  and start chatting to you.", start: 349.4, end: 352.6 },
+  { text: "Maybe don't even have to talk to them.", start: 352.6, end: 353.92 },
+  { text: "I mean... Kinda!", start: 353.92, end: 357.96 },
+  { text: "You're like, ‘Mm, yeah!’", start: 359.28, end: 360.6 },
+  { text: "I think I flirt with my face.", start: 360.6, end: 363.0 },
+  { text: "Do you ever get starstruck?", start: 412.38, end: 413.38 },
+  { text: "By a person?", start: 413.38, end: 414.38 },
+  { text: "Yeah. No. Not a capybara!", start: 414.54, end: 415.96 },
+  { text: "For me, it was Rihanna.", start: 417.62, end: 419.04 },
+  { text: "I don't think I could meet Rihanna.", start: 418.94, end: 420.74 },
+  { text: "I’d say ‘No!’ ‘Rihanna, turn around!’", start: 420.74, end: 423.22 },
+  { text: "‘Rihanna.’ ‘Walk away.’", start: 423.22, end: 424.86 },
+  { text: "But, yeah,", start: 424.86, end: 426.54 },
+  { text: "I...", start: 427.26, end: 427.74 },
+  { text: "yeah.", start: 427.74, end: 428.38 },
+  { text: "See me mumbling like I don't.", start: 428.38, end: 430.18 },
+  { text: "I can't even talk about...", start: 430.18, end: 431.42 },
+  { text: "Oh, even thinking about her.", start: 431.02, end: 432.26 },
+  { text: "Do you think I have what it takes to become an idol?", start: 436.06, end: 438.68 },
+  { text: "For sure. 100%.", start: 438.58, end: 440.46 },
+  { text: "Okay.", start: 440.34, end: 441.1 },
+  { text: "You know, the key to being an idol?", start: 441.1, end: 443.62 },
+  { text: "It's the confidence.", start: 443.7, end: 446.06 },
+  { text: "And I think you are very qualified.", start: 446.06, end: 449.1 },
+  { text: "I'm really leaving with wanting more, so hopefully...", start: 453.26, end: 457.7 },
+  { text: "Well. I’ll see you soon.", start: 457.50, end: 458.5 },
+  { text: "Yeah.", start: 458.5, end: 459.22 },
+  { text: "Cheers.", start: 459.22, end: 462.5 },
+];
+
+const STORAGE_KEY = 'subStatus_asianfood_yt';
+let status = {};
+
+function loadStatus() {
+  try {
+    status = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    for (let i=0; i<SUBS.length; i++) {
+      if (!status[i]) status[i]={hide:false,learned:false};
+    }
+  } catch { status = {}; }
+}
+function saveStatus() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(status));
+}
+
+function renderSubs(view='all') {
+  const subsDiv = document.getElementById('subs');
+  subsDiv.innerHTML = '';
+  let learned = 0;
+  SUBS.forEach((sub, idx) => {
+    if (view==='learned' && !status[idx].learned) return;
+    if (status[idx].learned) learned++;
+    const row = document.createElement('div');
+    row.className = 'sub-row';
+
+    const btn = document.createElement('button');
+    btn.className = 'sub-btn' + (status[idx].learned ? ' learned':'');
+    btn.innerText = status[idx].hide ? '🙈' : sub.text;
+    btn.onclick = () => playSub(idx);
+
+    const hideBtn = document.createElement('button');
+    hideBtn.className = 'hide-btn' + (status[idx].hide ? ' active' : '');
+    hideBtn.innerText = '🙈';
+    hideBtn.title = status[idx].hide ? '자막 보이기' : '자막 숨기기';
+    hideBtn.onclick = (e) => {
+      status[idx].hide = !status[idx].hide;
+      saveStatus(); renderSubs(currentView);
+      e.stopPropagation();
+    };
+
+    const checkBtn = document.createElement('button');
+    checkBtn.className = 'check-btn' + (status[idx].learned ? ' checked':'');
+    checkBtn.innerText = '✔️';
+    checkBtn.title = status[idx].learned ? '외웠음 해제' : '외웠음';
+    checkBtn.onclick = (e) => {
+      status[idx].learned = !status[idx].learned;
+      saveStatus(); renderSubs(currentView);
+      e.stopPropagation();
+    };
+
+    row.appendChild(btn);
+    row.appendChild(hideBtn);
+    row.appendChild(checkBtn);
+    subsDiv.appendChild(row);
+  });
+  // 진행률
+  let percent = SUBS.length ? Math.round(learned/SUBS.length*100) : 0;
+  document.getElementById('progress').innerHTML = 
+    `진행률: <b>${percent}%</b> (${learned}/${SUBS.length})`;
+}
+
+let player, timeoutId, currentView = 'all';
+function onYouTubeIframeAPIReady() {
+  player = new YT.Player('player');
+}
+function playSub(idx) {
+  if (!player || !player.seekTo) return;
+  const {start, end} = SUBS[idx];
+  player.seekTo(start, true);
+  player.playVideo();
+  if(timeoutId) clearTimeout(timeoutId);
+  timeoutId = setTimeout(()=>{player.pauseVideo();}, (end-start)*1000);
+}
+
+document.getElementById('show-all').onclick = function() {
+  currentView='all';
+  this.classList.add('active');
+  document.getElementById('show-learned').classList.remove('active');
+  renderSubs('all');
+};
+document.getElementById('show-learned').onclick = function() {
+  currentView='learned';
+  this.classList.add('active');
+  document.getElementById('show-all').classList.remove('active');
+  renderSubs('learned');
+};
+
+const tag = document.createElement('script');
+tag.src = "https://www.youtube.com/iframe_api";
+document.body.appendChild(tag);
+
+loadStatus();
+renderSubs(currentView);
+</script>
+</body>
+</html>
